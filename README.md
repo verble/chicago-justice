@@ -1,8 +1,14 @@
 # Chicago Justice Project backend app
 
-## Local installation instructions
+## Local Installation
 
-### Postgres installation
+### Install uv
+
+This project uses [uv](https://docs.astral.sh/uv/).
+Follow the [installation directions](https://docs.astral.sh/uv/getting-started/installation/) from uv's website.
+If Python is already installed on your system uv will detect and use it. If not, uv will download Python automatically.
+
+### Install PostgreSQL
 
 #### macOS
 
@@ -36,7 +42,7 @@ sudo -u postgres initdb --locale $LANG -E UTF8 -D '/var/lib/postgres/data'
 sudo systemctl start postgresql.service
 ```
 
-### Postgres setup
+### Configure the database
 
 Once PostgreSQL is installed and running, you can create the database you'll
 use locally for this app.
@@ -64,14 +70,11 @@ created. For instance, if we created database `cjpdb` and the user `cjpuser`:
 psql -d postgres -c "GRANT ALL ON DATABASE cjpdb TO cjpuser;"
 ```
 
-### Setup Environment Variables
+### Configure the environment variables
 
-Certain settings are read from environment variables. There are two ways you
-can set variables: 1) Use a `.env` file in the root directory; 2) setup a
-python virtual environment and use `virtualenv`'s `postactivate` and
-`predeactivate` hooks. Both methods are detailed below.
-
-#### Create a `.env` environment variable file
+Some of the app configuration is provided by environment variables.
+These environment variables are specified in an `.env` file in the project's root directory.
+This file is read by uv automatically.
 
 An example `.env` file is provided. You should copy it:
 
@@ -79,128 +82,60 @@ An example `.env` file is provided. You should copy it:
 cp .env-example .env
 ```
 
-Then, you can edit the file in your preferred editor.
+Then edit the file, substituting `cjpdb`, `cjpuser`, and `cjppassword` with the values appropriate for your setup.
 
-#### Create a python virtual environment
-
-There are two methods to creating a virtual environment:
-
-##### PyEnv
-
-Install PyEnv as according to the repository's [installation instructions](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation)
-
-Addtionally, install pyenv-virtualenv for managing virtual environments within different Python versions. Installation instructions found [here](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation)
-
-Next, let's install Python 3.8 (or an alternative version if you'd like).
+If desired, you may generate a new secret key [here](http://www.miniwebtool.com/django-secret-key-generator/) or by running:
 
 ```shell
-pyenv install 3.8
-pyenv global 3.8
+uv run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-Now, we're able to set up our virtual environment:
+### Create the Django admin user
+
+To use the [Django admin site](https://docs.djangoproject.com/en/5.2/ref/contrib/admin/) you will need to create a superuser:
+
+````shell
+uv run manage.py createsuperuser
+````
+
+### Initialize Django models and start the server
 
 ```shell
-pyenv virtualenv 3.8 name-of-my-virtual-env
-pyenv activate name-of-my-virtual-env
+uv run manage.py migrate
+# the news_source fixture contains data already present in the migrations
+# truncate to prevent duplicates in newsarticles_newsource
+psql -U cjpuser -d cjpdb -c "TRUNCATE newsarticles_newssource CASCADE;"
+uv run manage.py loaddata category news_source
+uv run manage.py runserver
 ```
 
-##### VirtualEnv
+## Using the `article-tagging` Package Locally
 
-Alternatively, you can create a virtual environment to house the environment
-variables and the app's dependencies.
+For development purposes, changes to the [article-tagging](https://github.com/chicago-justice-project/article-tagging) package may be required.
+This requires packaging the project locally to be used in this project:
 
-If not already installed, install python's `virtualenv` and
-`virtualenvwrapper`:
+````shell
+uv pip install -e PATH_TO_ARTICLE_TAGGING_REPO
+````
+
+## Running News Scrapers
+
+Before running scrapers for the first time be sure to download the [NLTK Data](https://www.nltk.org/data.html).
 
 ```shell
-pip install virtualenv virtualenvwrapper
-mkdir ~/.virtualenvs
+uv run manage.py downloadcorpus .venv/nltk_data
 ```
 
-Add the following to your `.bashrc` file:
+Then you can run all the scrapers with:
 
 ```shell
-export WORKON_HOME=~/.virtualenvs
-source /usr/local/bin/virtualenvwrapper.sh
+uv run manage.py runscrapers
 ```
 
-Find out the path to your python installation:
+or a single scraper by providing its name:
 
 ```shell
-which python
-```
-
-Create your working environment, naming it whatever you'd like (e.g.,
-`cjp_dev`), where `usr/local/bin/python` is whatever path the previous command
-returned:
-
-```shell
-mkvirtualenv --python=/usr/local/bin/python cjp_dev
-```
-
-You may now use `workon cjp_dev` and `deactivate` to activate and deactivate
-the virtual environment. Setup hooks so that when the virtual environment is
-activated, the proper environment variables will be set. Be sure to substitute
-`cjp_dev`, `cjpdb`, `cjpuser`, and `cjppassword` with your setup. You can also
-generate a unique secret key with something like this [Django Secret Key
-Generator](http://www.miniwebtool.com/django-secret-key-generator/)
-
-Add the following to `~/.virtualenvs/cjp_dev/bin/postactivate`:
-
-```bash
-export DJANGO_SETTINGS_MODULE="cjp.settings.local"
-export DATABASE_NAME="cjpdb"
-export DATABASE_USER="cjpuser"
-export DATABASE_PASSWORD="cjppassword"
-export SECRET_KEY='#&ubnzmo6$-0nk7i&hmii=e$7y-)nv+bm#&ps)6eq@!k+n-nq5'
-```
-
-To make sure these variables are unset upon deactivating the virtual
-environment, add the following to `~/.virtualenvs/cjp_dev/bin/predeactivate`:
-
-```bash
-unset DJANGO_SETTINGS_MODULE
-unset DATABASE_NAME
-unset DATABASE_USER
-unset DATABASE_PASSWORD
-unset SECRET_KEY
-```
-
-### Install Dependencies
-
-With the environment variables set, we're now ready to install the necessary
-dependencies:
-
-```shell
-pip install -r requirements.txt
-```
-
-### Using the Article-Tagging Package Locally
-
-For development purposes, changes to the [article-tagging](https://github.com/chicago-justice-project/article-tagging) package may be required. This requires packaging the project locally to be used in this project.
-
-This can be done via:
-`pip install -e PATH_TO_ARTICLE_TAGGING_REPO`
-
-### Initialize Django models and start server
-
-```shell
-./manage.py migrate
-./manage.py loaddata category news_source
-./manage.py runserver
-```
-
-## Running news scrapers
-
-```shell
-./manage.py runscrapers
-```
-
-To run a single scraper, enter the scraper name as an argument, e.g.:
-
-```shell
-./manage.py runscrapers crains
+uv run manage.py runscrapers propublica-illinois
 ```
 
 ----

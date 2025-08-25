@@ -1,0 +1,23 @@
+[project]
+name = "chicago-justice"
+version = "0.9.10"
+description = "Chicago Justice Project"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
+dependencies = [
+    "beautifulsoup4==4.13.1",
+    "django==4.2.18",
+    "django-debug-toolbar==4.4.6",
+    "djangorestframework==3.15.2",
+    "feedparser==6.0.11",
+    "html2text==2024.2.26",
+    "nltk==3.9.1",
+    "numpy==1.23.5",
+    "psycopg2-binary==2.9.10",
+    "pyyaml==6.0.2",
+    "requests==2.32.3",
+    "tagnews==1.4.0",
+    "tensorflow-io-gcs-filesystem==0.33.0",
+]
